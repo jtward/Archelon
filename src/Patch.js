@@ -1,7 +1,11 @@
 (function(global, undefined) {
 	'use strict';
 
-	global.Archelon.Patch = function(world, x, y) {
+	/**
+	** Create a new Patch
+	** @constructor
+	**/
+	global.Archelon._Patch = function(world, x, y) {
 		this.world = world;
 		this.x = x;
 		this.y = y;

@@ -3,7 +3,6 @@
 	'use strict';
 	
 	var Patch = global.Archelon.Patch;
-	delete global.Archelon.Patch;
 
 	// set up the default options for the world constructor
 	var defaultOptions = {
@@ -34,6 +33,14 @@
 		};
 		// array containing all turtles, indexed by turtle id
 		this._turtles = [];
+
+		//set up the unique patch subclass for this world
+		var patchSuperclass = global.Archelon._Patch;
+		this._Patch = function() {
+			patchSuperclass.apply(this, arguments);
+		};
+		this._Patch.prototype = Object.create(patchSuperclass.prototype);
+
 		// array containing all patches, a flattened 2d array. The patch at (x, y) is at index (y * width) + x
 		this._patches = [];
 		
@@ -98,7 +105,7 @@
 		while(i--) {
 			j = this.height;
 			while(j--) {
-				this._patches[(j * this.width) + i] = new Patch(this, i, j);
+				this._patches[(j * this.width) + i] = new this._Patch(this, i, j);
 			}
 		}
 	};
