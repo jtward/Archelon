@@ -108,6 +108,15 @@
 				this._patches[(j * this.width) + i] = new this._Patch(this, i, j);
 			}
 		}
+		
+		// initialize the world's patches - this sets up their neighbours array so we only ever calculate it once
+		i = this.width;
+		while(i--) {
+			j = this.height;
+			while(j--) {
+				this._patches[(j * this.width) + i].init();
+			}
+		}
 	};
 
 	/**
