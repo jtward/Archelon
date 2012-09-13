@@ -30,7 +30,7 @@ module.exports = function(grunt) {
     // index.html.
     concat: {
         dist: {
-            src: ['src/Archelon.js', 'src/Math.js', 'src/Patch.js', 'src/Turtle.js', 'src/World.js'],
+            src: ['src/Archelon.js', 'src/Math.js', 'src/Patch.js', 'src/Entity.js', 'src/World.js'],
             dest: 'dist/archelon.js'
         }
     },
