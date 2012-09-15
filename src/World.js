@@ -39,7 +39,6 @@
 		this._Patch = function() {
 			patchSuperclass.apply(this, arguments);
 		};
-		this._Patch.prototype = Object.create(patchSuperclass.prototype);
 
 		// array containing all patches, a flattened 2d array. The patch at (x, y) is at index (y * width) + x
 		this._patches = [];
@@ -88,13 +87,17 @@
 
 		if(this.angularUnit === global.Archelon.RADIAN) {
 			turtleSuperclass = global.Archelon._Turtle_rad;
+			patchSuperclass = global.Archelon._Patch_rad;
 			this.defaultTurtleHeading = global.Archelon.Math.wrapRad(options.defaultTurtleHeading);
 		}
 		else if(this.angularUnit === global.Archelon.DEGREE) {
 			turtleSuperclass = global.Archelon._Turtle_deg;
+			patchSuperclass = global.Archelon._Patch_deg;
 			this.defaultTurtleHeading = global.Archelon.Math.wrapDeg(options.defaultTurtleHeading);
 		}
+		
 		this._Turtle.prototype = Object.create(turtleSuperclass.prototype);
+		this._Patch.prototype = Object.create(patchSuperclass.prototype);
 
 		// _almostWidth/Height are used for determining the positions of turtles at the width or height of the world, which are not valid positions
 		this._almostWidth = nextFloatDown(this.width);
@@ -133,6 +136,56 @@
 	World.prototype._onTurtleDeath = function(turtle) {
 		// deleting the element leaves a hole in the array. This means we can always use a turtle's id as an index into _turtles.
 		delete this._turtles[turtle.id];
+	};
+
+	/**
+	** Ask an array of entities to perform some action
+	** The action may involve asking an array fo turtles to perform some action, in which case this function is recursive
+	** @param {Entity[]} arr An array of entities to ask
+	** @param {Function} fn The function which is executed in the context of each entity in the given array in turn. Its first argument is this.askStack, which must not me modified.
+	** @param {Boolean?} dontClone A boolean which dictates whether a clone of the given array is made. If the value is not given or is falsy, the array is cloned to guard against modifications by the given function. If the given array is guaranteed never to be modified as a side-effect of the given function, then it is safe to set this value to true to improve performance.
+	**/
+	World.prototype.ask = function(arr, fn, dontClone) {
+		var i = 0;
+		var len = arr.length;
+		var el;
+		var stack = this.selfStack;
+
+		arr = dontClone ? arr : arr.slice(0);
+
+		for(i = 0; i < len; i += 1) {
+			el = arr[i];
+			stack.push(el);
+
+			// fn may throw an error.
+			try {
+				// fn must not alter stack!
+				fn.call(el, stack);
+			} finally {
+				// always pop
+				stack.pop();
+			}
+		}
+	};
+
+	/**
+	** Return the patch at the given x and y positions
+	** @param {Number} x The x position
+	** @param {Number} y The y position
+	** @param {Patch} The patch at the given position, undefined if the given position is not contained in the world
+	**/
+	World.prototype.patchAtPosition = function(x, y) {
+		return this._patches[Math.floor(y) * this.width + Math.floor(x)];
+	};
+
+	/**
+	** Return the patch at the given x and y indices
+	** @param {Number} x The x index
+	** @param {Number} y The y index
+	** @param {Patch} The patch at the given index, undefined if the given index is not contained in the world
+	**/
+	World.prototype.patchAtIndex = function(x, y) {
+		return this._patches[y * this.width + x];
 	};
 	
 	/**
