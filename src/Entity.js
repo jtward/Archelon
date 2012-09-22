@@ -12,6 +12,7 @@
 	var _180 = 180;
 	var neg180 = -180;
 	var _360 = 360;
+	var root2 = Math.sqrt(2);
 
 	// default values
 	var defaultX = 0;
@@ -62,6 +63,179 @@
 		var dx = this.x - other.x;
 		var dy = this.y - other.y;
 		return dx * dx + dy * dy;
+	};
+
+	entity.inRadius = function(arr, r) {
+		var i, len = arr.length;
+		var result = [];
+		var distanceSquared = r * r;
+		var other;
+		for(i = 0; i < len; i += 1) {
+			other = arr[i];
+			if(this.distanceSquaredTo(other) <= distanceSquared) {
+				result.push(other);
+			}
+		}
+		return result;
+	};
+
+	entity.patchesInSquare = function(r) {
+		var result = [];
+		var worldWidth = this.world.width;
+		var x = this.x;
+		var y = this.y;
+		var minX = Math.max(0, Math.floor(x - r));
+		var maxX = Math.min(worldWidth, Math.ceil(x + r));
+		var minY = Math.max(0, Math.floor(y - r)) * worldWidth;
+		var maxY = worldWidth * Math.min(this.world.height, Math.ceil(y + r));
+		var patches = this.world._patches;
+		var i;
+		var j;
+
+		for(i = minY; i < maxY; i += worldWidth) {
+			for(j = minX; j < maxX; j += 1) {
+				result.push(patches[i + j]);
+			}
+		}
+		if(result.length === 0) {
+			result.push(patches[ minx + miny ]);
+		}
+		return result;
+	};
+
+	entity.patchesInRadius = function(r) {
+		var patches = this.world._patches;
+		var x = this.x;
+		var floorx = Math.floor(x);
+		var y = this.y;
+		var floory = Math.floor(y);
+		var rsquared = r * r;
+		var worldWidth = this.world.width;
+		var worldHeight = this.world.height;
+		var result = []; //this.patchesInSquare(Math.max(r - root2, 0));
+
+		var xcmin = Math.max(0, Math.floor(x - r));
+		// NOT Math.floor(x + r + 1) because if Math.floor(x + r + 1) === x + r + 1 then 
+		// the column x + r is not counted
+		var xcmax = Math.min(worldWidth, Math.ceil(x + r));
+		var ycmin = Math.max(0, Math.floor(y - r));
+		var ycmax = Math.min(worldHeight, Math.ceil(y + r)); // NOT Math.floor(y + r) (see above)
+		var xc;
+		var yc;
+		var ycWidth;
+		var xcSquared;
+		var ycSquared;
+		for(xc = xcmin; xc < xcmax; xc += 1) {
+			for(yc = ycmin; yc < ycmax; yc += 1) {
+				// test the whether corner of the patch at (xc, yc) closest to this entity is in 
+				// the circle
+				ycWidth = yc * worldWidth;
+				// gets a little tricky to tell which corner is closest if the x or y
+				// coordinate of the test patch is equal to the x or y coordinate of the 
+				// source patch
+				xcSquared = x -
+								(xc +
+									((xc === floorx) ?
+										(Math.abs(xc - x) < 0.5 ? 0 : 1) :
+										((xc < x) ? 1 : 0)));
+				
+				xcSquared *= xcSquared;
+				ycSquared = y -
+								(yc +
+									((yc === floory) ?
+										(Math.abs(yc - y) < 0.5 ? 0 : 1) :
+										((yc < y) ? 1 : 0)));
+
+				ycSquared *= ycSquared;
+
+				if(xcSquared + ycSquared < rsquared) {
+					result.push(patches[ycWidth + xc]);
+				}
+			}
+		}
+
+		//special cases for patches with no corners in the circle
+		// the first of these is the patch containing this entity
+		if(result.length === 0) {
+			result.push(patches[(floory * worldWidth) + floorx]);
+		}
+
+		//left side of the circle
+		// guard against xcmin being limited by the world width
+		// and being the patch containing this entity
+		if(xcmin === Math.floor(x - r) && xcmin < floorx) {
+			// start by testing bottom-right corner
+			yc = y - (floory + 1);
+			ycSquared = yc * yc;
+			// we're testing the right edge of the patch so add 1 to xcmin
+			xcSquared = x - (xcmin + 1);
+			xcSquared *= xcSquared;
+
+			// test whether the corner is in the circle using pythagoras
+			if(xcSquared + ycSquared >= rsquared) {
+				// the corner was not in the circle; now test the top-right corner
+				yc = y - floory;
+				ycSquared = yc * yc;
+
+				if(xcSquared + ycSquared >= rsquared) {	
+					// neither corner was in the circle so this patch is not currently in results
+					result.push(patches[ (floory * worldWidth) + xcmin ]);
+				}
+			}
+		}
+
+		// top side of the circle
+		if(ycmin === Math.floor(y - r) && ycmin < floory) {
+			xc = x - (floorx + 1);
+			xcSquared = xc * xc;
+			ycSquared = y - (ycmin + 1);
+			ycSquared *= ycSquared;
+
+			if(xcSquared + ycSquared >= rsquared) {
+				xc = x - floorx;
+				xcSquared = xc * xc;
+				if(xcSquared + ycSquared >= rsquared) {
+					result.push(patches[ (ycmin * worldWidth) + floorx ]);
+				}
+			}
+		}
+
+		// right side of the circle
+		if(xcmax === Math.ceil(x + r) && xcmax > floorx + 1) {
+			// start by testing the bottom-left corner
+			yc = y - (floory + 1);
+			ycSquared = yc * yc;
+			// we're testing the left edge of the patch so subtract 1 from xcmin
+			xcSquared = xcmax - 1 - x;
+			xcSquared *= xcSquared;
+			
+			if(xcSquared + ycSquared >= rsquared) {
+				// now test the top-left corner
+				yc = y - floory;
+				ycSquared = yc * yc;
+				if(xcSquared + ycSquared >= rsquared) {
+					result.push(patches[ (floory * worldWidth) + xcmax - 1 ]);
+				}
+			}
+		}
+
+		if(ycmax === Math.ceil(y + r) && ycmax > floory + 1) {
+			// start by testing the top-right corner
+			xc = x - (floorx + 1);
+			xcSquared = xc * xc;
+			ycSquared = ycmax - 1- y;
+			ycSquared *= ycSquared;
+
+			if(xcSquared + ycSquared >= rsquared) {
+				// now test the top-left corner
+				xc = x - floorx;
+				xcSquared = xc * xc;
+				if(xcSquared + ycSquared >= rsquared) {
+					result.push(patches[ ((ycmax - 1) * worldWidth) + floorx ]);
+				}
+			}
+		}
+		return result;
 	};
 
 	var entity_rad = mix({}, entity);
