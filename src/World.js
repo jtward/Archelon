@@ -32,7 +32,7 @@
 			turtleSuperclass.apply(this, arguments);
 		};
 		// array containing all turtles, indexed by turtle id
-		this._turtles = [];
+		this.indexedTurtles = [];
 
 		//set up the unique patch subclass for this world
 		var patchSuperclass = global.Archelon._Patch;
@@ -126,16 +126,28 @@
 	** Create a new turtle at the default position with the default heading
 	**/
 	World.prototype.createTurtle = function() {
-		this._turtles.push(new this._Turtle(this, this.__currentTurtleId++, this.defaultTurtleX, this.defaultTurtleY, this.defaultTurtleHeading));
+		var turtle = new this._Turtle(this, this.__currentTurtleId++, this.defaultTurtleX, this.defaultTurtleY, this.defaultTurtleHeading);
+		this.indexedTurtles.push(turtle);
+		this.turtles.push(turtle);
 	};
 
-	// Create a new breed
-	// TODO: IMPLEMENT createBreed
-	//World.prototype.createBreed = function(options) {};
-
 	World.prototype._onTurtleDeath = function(turtle) {
-		// deleting the element leaves a hole in the array. This means we can always use a turtle's id as an index into _turtles.
-		delete this._turtles[turtle.id];
+		// deleting the element leaves a hole in the array. This means we can always use a turtle's id as an index into indexedTurtles.
+		delete this.indexedTurtles[turtle.id];
+		// splice out the turtle from turtles; use binary search to find it to start with; TODO: implement biased binary search
+		var A = this.turtles, imin = 0, imax = A.length - 1, key = turtle.id, imid;
+		while(imin < imax) {
+			imid = Math.floor((imin + imax) / 2);
+			if(A[imid].id < key) {
+				imin = imid + 1;
+			}
+			else {
+				imax = imid;
+			}
+		}
+		if(imax === imin && A[imin].id === key) {
+			A.splice(imin, 1);
+		}
 	};
 
 	/**

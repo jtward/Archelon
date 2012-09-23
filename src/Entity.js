@@ -98,7 +98,7 @@
 			}
 		}
 		if(result.length === 0) {
-			result.push(patches[ minx + miny ]);
+			result.push(patches[ minX + minY ]);
 		}
 		return result;
 	};
@@ -238,6 +238,80 @@
 		return result;
 	};
 
+	/**
+	** Return the turtles within the given radius of this entity
+	** This algorithm has complexity O(n) where n is the number of turtles in the world
+	** @param {Number} r The radius of the fence
+	** @return {Turtle[]} The turtles within the given radius of this entity
+	**/
+	entity.turtlesInRadius = function(r) {
+		var result = [];
+		// use the compact array, not the sparse indexed array of turtles
+		var turtles = this.world.turtles;
+		var len = turtles.length;
+		var rSquared = r * r;
+		var i;
+		var other;
+		var x = this.x;
+		var y = this.y;
+		var dx;
+		var dy;
+		for(i = 0; i < len; i += 1) {
+			other = turtles[i];
+			if(other) {
+				dx = other.x - x;
+				dx *= dx;
+				dy = other.y - y;
+				dy *= dy;
+				if(dx + dy <= rSquared) {
+					result.push(other);
+				}
+			}
+		}
+		return result;
+	};
+
+	/**
+	** Return the turtles within the given radius of this entity
+	** This algorithm has complexity O((r^2) * n) where r is the radius and n is the number of 
+	**  turtles in the patches within the radius. This implementation can be faster than 
+	**  turtlesInRadius when the world is large with many turtles.
+	** @param {Number} r The radius of the fence
+	** @return {Turtle[]} The turtles within the given radius of this entity
+	**/
+	entity.turtlesInRadiusByPatch = function(r) {
+		var patches = this.patchesInRadius(r);
+		var patch;
+		var patchIndex;
+		var patchesLen = patches.length;
+		var turtles;
+		var other;
+		var turtleIndex;
+		var turtlesLen;
+		var result = [];
+		var rSquared = r * r;
+		var x = this.x;
+		var y = this.y;
+		var dx;
+		var dy;
+		for(patchIndex = 0; patchIndex < patchesLen; patchIndex += 1) {
+			patch = patches[patchIndex];
+			turtles = patch.turtles;
+			turtlesLen = turtles.length;
+			for(turtleIndex = 0; turtleIndex < turtlesLen; turtleIndex += 1) {
+				other = turtles[turtleIndex];
+				dx = other.x - x;
+				dx *= dx;
+				dy = other.y - y;
+				dy *= dy;
+				if(dx + dy <= rSquared) {
+					result.push(other);
+				}
+			}
+		}
+		return result;
+	};
+
 	var entity_rad = mix({}, entity);
 
 	/**
@@ -278,14 +352,20 @@
 	** @param {Number} dist the distance to move
 	**/
 	turtle.forward = function(dist) {
-		var x = this.x + (Math.cos(-this._heading) * dist);
-		var y = this.y + (Math.sin(-this._heading) * dist);
+		var x = this.x;
+		var y = this.y;
 		var m;
 		var c;
 		var wh;
 		var ww;
 		var ah;
 		var aw;
+		var oldPatchIndex = (this.world.worldWidth * Math.floor(y)) + Math.floor(x);
+		var oldPatchTurtles;
+		var newPatchIndex;
+		x = x + (Math.cos(-this._heading) * dist);
+		y = y + (Math.sin(-this._heading) * dist);
+		
 		if(x < 0) {
 			// dividing by (x - this.x) is ok here: x < 0 && this.x >= 0 so (x - this.x !== 0)
 			m = (y - this.y) / (x - this.x);
@@ -440,6 +520,15 @@
 			this.x = x;
 			this.y = y;
 		}
+
+		// update the patches' turtles arrays if we moved patch
+		newPatchIndex = (this.world.worldWidth * Math.floor(this.y)) + Math.floor(this.x);
+		if(oldPatchIndex !== newPatchIndex) {
+			oldPatchTurtles = this.world.patches[oldPatchIndex].turtles;
+			oldPatchTurtles.splice(oldPatchTurtles.indexOf(this), 1);
+			this.world.patches[newPatchIndex].turtles.push(this);
+		}
+
 	};
 
 	/**
@@ -548,6 +637,8 @@
 		this.id = id;
 		this.x = x;
 		this.y = y;
+		// compact array of the turtles currently on this patch
+		this.turtles = [];
 		// assume that heading is in the range [-180, 180)
 		this._heading = ArchelonMath.deg2rad(heading);
 	};
